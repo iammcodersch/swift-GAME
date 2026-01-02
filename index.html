@@ -1,208 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>3D Car Racer</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background: #020617;
-            font-family: Arial, sans-serif;
-            color: white;
-        }
+  <meta charset="UTF-8" />
+  <title>My Web Flight Sim</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      font-family: sans-serif;
+      color: #fff;
+    }
 
-        #hud {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            padding: 10px 14px;
-            background: rgba(0,0,0,0.5);
-            border-radius: 8px;
-            font-size: 14px;
-            z-index: 10;
-        }
-    </style>
+    #ui-overlay {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      font-size: 14px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 8px 10px;
+      border-radius: 4px;
+      pointer-events: none;
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
 </head>
 <body>
+  <div id="canvas-container"></div>
+  <div id="ui-overlay">
+    <div><strong>Controls</strong></div>
+    <div>Pitch: W / S</div>
+    <div>Roll: A / D</div>
+    <div>Yaw: Q / E</div>
+    <div>Throttle: R / F</div>
+  </div>
 
-<div id="hud">Speed: <span id="speed">0</span></div>
+  <!-- Three.js CDN -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
-
-<script>
-// ---------------- BASIC SETUP ----------------
-let scene, camera, renderer, car;
-let speed = 0;
-const keys = {};
-
-init();
-animate();
-
-function init() {
-    // Scene
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x020617);
-
-    // Camera
-    camera = new THREE.PerspectiveCamera(
-        60,
-        window.innerWidth / window.innerHeight,
-        0.1,
-        1000
-    );
-    camera.position.set(0, 6, 12);
-
-    // Renderer
-    renderer = new THREE.WebGLRenderer({ antialias:true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    document.body.appendChild(renderer.domElement);
-
-    // Lights
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x111827, 1.0);
-    scene.add(hemi);
-
-    const dir = new THREE.DirectionalLight(0xffffff, 1.2);
-    dir.position.set(10,20,-10);
-    dir.castShadow = true;
-    scene.add(dir);
-
-    // Ground
-    const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(500,500),
-        new THREE.MeshStandardMaterial({
-            color:0x0f172a,
-            roughness: 1,
-            metalness: 0
-        })
-    );
-    ground.rotation.x = -Math.PI/2;
-    ground.receiveShadow = true;
-    scene.add(ground);
-
-    // Car
-    createCar();
-
-    // Controls
-    window.addEventListener("keydown", e => keys[e.code] = true);
-    window.addEventListener("keyup", e => keys[e.code] = false);
-    window.addEventListener("resize", onResize);
-}
-
-function createCar() {
-    car = new THREE.Group();
-
-    // Car body shader
-    const bodyMaterial = new THREE.MeshStandardMaterial({
-        color: 0xff3333,
-        metalness: 0.8,
-        roughness: 0.3
-    });
-
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(2,0.6,4),
-        bodyMaterial
-    );
-    body.position.y = 0.7;
-    body.castShadow = true;
-    car.add(body);
-
-    // Cabin
-    const cabin = new THREE.Mesh(
-        new THREE.BoxGeometry(1.4,0.5,1.6),
-        new THREE.MeshStandardMaterial({
-            color: 0x111827,
-            roughness: 0.9,
-            metalness: 0.1
-        })
-    );
-    cabin.position.set(0,1.1,-0.3);
-    cabin.castShadow = true;
-    car.add(cabin);
-
-    // Wheels
-    const wheelGeo = new THREE.CylinderGeometry(0.45,0.45,0.4,20);
-    const wheelMat = new THREE.MeshStandardMaterial({
-        color: 0x000000,
-        roughness: 0.8,
-        metalness: 0.2
-    });
-
-    function wheel(x,z) {
-        const w = new THREE.Mesh(wheelGeo, wheelMat);
-        w.rotation.z = Math.PI/2;
-        w.position.set(x,0.35,z);
-        w.castShadow = true;
-        return w;
-    }
-
-    car.add(wheel(0.95,1.4));
-    car.add(wheel(-0.95,1.4));
-    car.add(wheel(0.95,-1.4));
-    car.add(wheel(-0.95,-1.4));
-
-    car.position.set(0,0,0);
-    scene.add(car);
-}
-
-// ---------------- GAME LOOP ----------------
-function updateCar() {
-    const accel = 20;
-    const maxSpeed = 50;
-    const grip = 1;
-
-    // Acceleration
-    if (keys["KeyW"]) speed += accel * 0.02;
-    if (keys["KeyS"]) speed -= accel * 0.02;
-
-    // Clamp speed
-    speed = Math.max(Math.min(speed, maxSpeed), -maxSpeed);
-
-    // Natural slowdown
-    if (!keys["KeyW"] && !keys["KeyS"]) {
-        if (speed > 0) {
-            speed -= 8 * 0.02;
-            if (speed < 0) speed = 0;
-        } else if (speed < 0) {
-            speed += 8 * 0.02;
-            if (speed > 0) speed = 0;
-        }
-    }
-
-    // Steering
-    let steer = 0;
-    if (keys["KeyA"]) steer += 1;
-    if (keys["KeyD"]) steer -= 1;
-
-    car.rotation.y += steer * (speed/maxSpeed) * grip * 0.05;
-
-    // Movement
-    const forward = new THREE.Vector3(0,0,-1).applyQuaternion(car.quaternion);
-    car.position.addScaledVector(forward, speed * 0.02);
-
-    // Camera follow
-    const camOffset = new THREE.Vector3(0,6,12).applyQuaternion(car.quaternion);
-    camera.position.lerp(car.position.clone().add(camOffset), 0.1);
-    camera.lookAt(car.position);
-
-    // HUD
-    document.getElementById("speed").textContent = Math.round(speed);
-}
-
-function animate() {
-    requestAnimationFrame(animate);
-    updateCar();
-    renderer.render(scene, camera);
-}
-
-function onResize() {
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-}
-</script>
-
+  <!-- Your script -->
+  <script src="main.js"></script>
 </body>
 </html>
 
