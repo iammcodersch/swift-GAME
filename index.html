@@ -4,220 +4,454 @@
     <meta charset="UTF-8" />
     <title>3D Car Racer</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #020617; font-family: Arial; }
+        :root {
+            color-scheme: dark;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #020617;
+            color: #e5e7eb;
+        }
+
+        /* Menu overlay */
         #menu {
-            position: fixed; inset: 0; display: flex; justify-content: center; align-items: center;
-            background: rgba(0,0,0,0.8); color: white; z-index: 10;
+            position: fixed;
+            inset: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at top, rgba(15,23,42,0.96), rgba(2,6,23,0.96));
+            z-index: 10;
         }
-        .panel {
-            background: #0f172a; padding: 20px; border-radius: 12px; width: 300px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+
+        .menu-panel {
+            width: 340px;
+            padding: 24px 24px 20px;
+            border-radius: 16px;
+            background: rgba(15,23,42,0.95);
+            box-shadow: 0 24px 60px rgba(0,0,0,0.9);
+            border: 1px solid #1f2937;
         }
-        input, select, button {
-            width: 100%; padding: 8px; margin-top: 8px; border-radius: 6px; border: none;
+
+        .menu-title {
+            margin: 0 0 4px;
+            font-size: 22px;
+            font-weight: 700;
         }
-        button { background: #2563eb; color: white; cursor: pointer; }
+
+        .menu-subtitle {
+            margin: 0 0 16px;
+            font-size: 13px;
+            color: #9ca3af;
+        }
+
+        .field-label {
+            display: block;
+            font-size: 12px;
+            margin-top: 10px;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #9ca3af;
+        }
+
+        .field-input,
+        .field-select {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid #1f2937;
+            background: #020617;
+            color: #e5e7eb;
+            font-size: 14px;
+        }
+
+        .field-input:focus,
+        .field-select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 1px #3b82f6;
+        }
+
+        .menu-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 18px;
+        }
+
+        .btn {
+            flex: 1 1 auto;
+            padding: 9px 10px;
+            border-radius: 999px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.05s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(to right, #2563eb, #1d4ed8);
+            color: #f9fafb;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(to right, #1d4ed8, #1e40af);
+        }
+
+        .btn-secondary {
+            background: #16a34a;
+            color: #ecfdf5;
+        }
+
+        .btn-secondary:hover {
+            background: #15803d;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .menu-footer {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        /* HUD */
         #hud {
-            position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.5);
-            padding: 10px; border-radius: 8px; color: white; display: none;
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            padding: 8px 12px;
+            border-radius: 12px;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(31,41,55,0.8);
+            color: #e5e7eb;
+            font-size: 12px;
+            display: none;
+            z-index: 5;
+            backdrop-filter: blur(10px);
+        }
+
+        #hud div {
+            margin-bottom: 2px;
+        }
+
+        #hud div:last-child {
+            margin-bottom: 0;
+        }
+
+        #canvas-container {
+            position: fixed;
+            inset: 0;
         }
     </style>
 </head>
 <body>
 
-<!-- MENU -->
 <div id="menu">
-    <div class="panel">
-        <h2>3D Car Racer</h2>
+    <div class="menu-panel">
+        <h1 class="menu-title">3D Car Racer</h1>
+        <p class="menu-subtitle">Choose your car and driver, then hit Start to race.</p>
 
-        <label>Player Name</label>
-        <input id="playerName" placeholder="Your name">
+        <label class="field-label" for="playerName">Player name</label>
+        <input id="playerName" class="field-input" placeholder="Your name" autocomplete="off" />
 
-        <label>Car</label>
-        <select id="carSelect">
-            <option value="sport">Sport Car</option>
-            <option value="muscle">Muscle Car</option>
-            <option value="kart">Go-Kart</option>
+        <label class="field-label" for="carSelect">Car</label>
+        <select id="carSelect" class="field-select">
+            <option value="sport">Sport • fast & light</option>
+            <option value="muscle">Muscle • strong & heavy</option>
+            <option value="kart">Kart • agile & grippy</option>
         </select>
 
-        <label>Driver</label>
-        <select id="driverSelect">
-            <option value="balanced">Balanced</option>
-            <option value="aggressive">Aggressive</option>
-            <option value="smooth">Smooth</option>
+        <label class="field-label" for="driverSelect">Driver style</label>
+        <select id="driverSelect" class="field-select">
+            <option value="balanced">Balanced • neutral</option>
+            <option value="aggressive">Aggressive • more oversteer</option>
+            <option value="smooth">Smooth • more grip</option>
         </select>
 
-        <button id="startBtn">Start Game</button>
+        <div class="menu-buttons">
+            <button id="startBtn" class="btn btn-primary">Start game</button>
+            <button id="multiBtn" class="btn btn-secondary">Multiplayer</button>
+        </div>
+
+        <p class="menu-footer">
+            Controls: W / S to accelerate & brake, A / D to steer. Multiplayer requires a WebSocket server (not wired yet).
+        </p>
     </div>
 </div>
 
-<!-- HUD -->
 <div id="hud">
-    <div id="hudName"></div>
-    <div id="hudCar"></div>
-    <div id="hudSpeed"></div>
+    <div id="hudName">Player: –</div>
+    <div id="hudCar">Car: –</div>
+    <div id="hudSpeed">Speed: 0</div>
 </div>
+
+<div id="canvas-container"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
 
 <script>
-// ---------------- MENU ----------------
-const menu = document.getElementById("menu");
-const hud = document.getElementById("hud");
+window.addEventListener("load", () => {
+    // --------- DOM ELEMENTS ----------
+    const menu = document.getElementById("menu");
+    const hud = document.getElementById("hud");
+    const hudName = document.getElementById("hudName");
+    const hudCar = document.getElementById("hudCar");
+    const hudSpeed = document.getElementById("hudSpeed");
+    const playerNameInput = document.getElementById("playerName");
+    const carSelect = document.getElementById("carSelect");
+    const driverSelect = document.getElementById("driverSelect");
+    const startBtn = document.getElementById("startBtn");
+    const multiBtn = document.getElementById("multiBtn");
+    const canvasContainer = document.getElementById("canvas-container");
 
-document.getElementById("startBtn").onclick = () => {
-    startGame();
-};
+    const config = {
+        playerName: "Player",
+        carType: "sport",
+        driverType: "balanced"
+    };
 
-// ---------------- GAME CONFIG ----------------
-let config = {
-    name: "",
-    car: "",
-    driver: ""
-};
+    // --------- THREE.JS CORE ----------
+    let scene, camera, renderer, car;
+    let speed = 0;
+    const keys = {};
 
-// ---------------- THREE.JS SETUP ----------------
-let scene, camera, renderer, car;
-let speed = 0, steering = 0;
-const keys = {};
+    init3D();
+    initMenu();
+    animate();
 
-init3D();
-animate();
+    function initMenu() {
+        startBtn.addEventListener("click", () => {
+            config.playerName = playerNameInput.value.trim() || "Player";
+            config.carType = carSelect.value;
+            config.driverType = driverSelect.value;
 
-function init3D() {
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x020617);
+            startGame();
+        });
 
-    camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 6, 12);
-
-    renderer = new THREE.WebGLRenderer({ antialias:true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x111827, 0.8);
-    scene.add(hemi);
-
-    const dir = new THREE.DirectionalLight(0xffffff, 1);
-    dir.position.set(10,20,-10);
-    scene.add(dir);
-
-    const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(500,500),
-        new THREE.MeshStandardMaterial({ color:0x0f172a })
-    );
-    ground.rotation.x = -Math.PI/2;
-    scene.add(ground);
-
-    window.addEventListener("keydown", e => keys[e.code] = true);
-    window.addEventListener("keyup", e => keys[e.code] = false);
-    window.addEventListener("resize", onResize);
-}
-
-function createCar(type, driver) {
-    if (car) scene.remove(car);
-    car = new THREE.Group();
-
-    let color = 0xff3333;
-    let maxSpeed = 40;
-    let accel = 20;
-    let grip = 1;
-
-    if (type === "sport") { color = 0x22c55e; maxSpeed = 55; accel = 22; grip = 0.9; }
-    if (type === "muscle") { color = 0xf97316; maxSpeed = 45; accel = 26; grip = 0.8; }
-    if (type === "kart") { color = 0x3b82f6; maxSpeed = 30; accel = 16; grip = 1.2; }
-
-    if (driver === "aggressive") grip *= 0.8;
-    if (driver === "smooth") grip *= 1.1;
-
-    car.userData = { maxSpeed, accel, grip };
-
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(2,0.6,4),
-        new THREE.MeshStandardMaterial({ color })
-    );
-    body.position.y = 0.6;
-    car.add(body);
-
-    const wheelGeo = new THREE.CylinderGeometry(0.5,0.5,0.4,16);
-    const wheelMat = new THREE.MeshStandardMaterial({ color:0x111111 });
-
-    function wheel(x,z){
-        const w = new THREE.Mesh(wheelGeo, wheelMat);
-        w.rotation.z = Math.PI/2;
-        w.position.set(x,0.3,z);
-        return w;
+        multiBtn.addEventListener("click", () => {
+            alert("Multiplayer is not connected yet.\nYou’ll need to plug in a WebSocket server later.");
+        });
     }
 
-    car.add(wheel(1,1.5));
-    car.add(wheel(-1,1.5));
-    car.add(wheel(1,-1.5));
-    car.add(wheel(-1,-1.5));
+    function init3D() {
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x020617);
 
-    scene.add(car);
-}
+        camera = new THREE.PerspectiveCamera(
+            60,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+        camera.position.set(0, 6, 12);
 
-function startGame() {
-    config.name = document.getElementById("playerName").value || "Player";
-    config.car = document.getElementById("carSelect").value;
-    config.driver = document.getElementById("driverSelect").value;
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        canvasContainer.appendChild(renderer.domElement);
 
-    createCar(config.car, config.driver);
+        const hemi = new THREE.HemisphereLight(0xffffff, 0x111827, 0.8);
+        scene.add(hemi);
 
-    document.getElementById("hudName").textContent = "Player: " + config.name;
-    document.getElementById("hudCar").textContent = "Car: " + config.car;
+        const dir = new THREE.DirectionalLight(0xffffff, 1);
+        dir.position.set(15, 25, -10);
+        dir.castShadow = true;
+        dir.shadow.mapSize.set(2048, 2048);
+        scene.add(dir);
 
-    hud.style.display = "block";
-    menu.style.display = "none";
-}
+        const groundMat = new THREE.MeshStandardMaterial({
+            color: 0x020617,
+            roughness: 1,
+            metalness: 0
+        });
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(500, 500),
+            groundMat
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
 
-function updateCar() {
-    if (!car) return;
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x4b5563 });
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(-25, 0.02, -25),
+            new THREE.Vector3(25, 0.02, -25),
+            new THREE.Vector3(25, 0.02, 25),
+            new THREE.Vector3(-25, 0.02, 25),
+            new THREE.Vector3(-25, 0.02, -25)
+        ]);
+        scene.add(new THREE.Line(lineGeo, lineMat));
 
-    const accel = car.userData.accel;
-    const maxSpeed = car.userData.maxSpeed;
-    const grip = car.userData.grip;
-
-    if (keys["KeyW"]) speed += accel * 0.02;
-    if (keys["KeyS"]) speed -= accel * 0.02;
-
-    speed = Math.max(Math.min(speed, maxSpeed), -maxSpeed);
-
-    if (!keys["KeyW"] && !keys["KeyS"]) {
-        if (speed > 0) speed -= 8 * 0.02;
-        if (speed < 0) speed += 8 * 0.02;
-        if (Math.abs(speed) < 0.1) speed = 0;
+        window.addEventListener("keydown", e => keys[e.code] = true);
+        window.addEventListener("keyup", e => keys[e.code] = false);
+        window.addEventListener("resize", onResize);
     }
 
-    let steerInput = 0;
-    if (keys["KeyA"]) steerInput += 1;
-    if (keys["KeyD"]) steerInput -= 1;
+    function createCarFromConfig() {
+        if (car) {
+            scene.remove(car);
+            car = null;
+        }
 
-    car.rotation.y += steerInput * (speed/maxSpeed) * grip * 0.05;
+        car = new THREE.Group();
 
-    const forward = new THREE.Vector3(0,0,-1).applyQuaternion(car.quaternion);
-    car.position.addScaledVector(forward, speed * 0.02);
+        let bodyColor = 0xff4444;
+        let maxSpeed = 40;
+        let accel = 20;
+        let grip = 1;
 
-    const camOffset = new THREE.Vector3(0,6,12).applyQuaternion(car.quaternion);
-    camera.position.lerp(car.position.clone().add(camOffset), 0.1);
-    camera.lookAt(car.position);
+        if (config.carType === "sport") {
+            bodyColor = 0x22c55e;
+            maxSpeed = 55;
+            accel = 22;
+            grip = 0.9;
+        } else if (config.carType === "muscle") {
+            bodyColor = 0xf97316;
+            maxSpeed = 45;
+            accel = 26;
+            grip = 0.8;
+        } else if (config.carType === "kart") {
+            bodyColor = 0x3b82f6;
+            maxSpeed = 30;
+            accel = 16;
+            grip = 1.2;
+        }
 
-    document.getElementById("hudSpeed").textContent = "Speed: " + Math.round(speed);
-}
+        if (config.driverType === "aggressive") {
+            grip *= 0.8;
+        } else if (config.driverType === "smooth") {
+            grip *= 1.1;
+        }
 
-function animate() {
-    requestAnimationFrame(animate);
-    updateCar();
-    renderer.render(scene, camera);
-}
+        car.userData.maxSpeed = maxSpeed;
+        car.userData.accel = accel;
+        car.userData.grip = grip;
 
-function onResize() {
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-}
+        const bodyMat = new THREE.MeshStandardMaterial({
+            color: bodyColor,
+            roughness: 0.35,
+            metalness: 0.8
+        });
+        const bodyGeo = new THREE.BoxGeometry(2, 0.6, 4);
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = 0.7;
+        body.castShadow = true;
+        car.add(body);
+
+        const cabinMat = new THREE.MeshStandardMaterial({
+            color: 0x111827,
+            roughness: 0.9,
+            metalness: 0.1
+        });
+        const cabinGeo = new THREE.BoxGeometry(1.4, 0.5, 1.6);
+        const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+        cabin.position.set(0, 1.1, -0.3);
+        cabin.castShadow = true;
+        car.add(cabin);
+
+        const wheelGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.4, 20);
+        const wheelMat = new THREE.MeshStandardMaterial({
+            color: 0x020617,
+            roughness: 0.8,
+            metalness: 0.2
+        });
+
+        function makeWheel(x, z) {
+            const w = new THREE.Mesh(wheelGeo, wheelMat);
+            w.rotation.z = Math.PI / 2;
+            w.position.set(x, 0.35, z);
+            w.castShadow = true;
+            return w;
+        }
+
+        car.add(makeWheel(0.95, 1.4));
+        car.add(makeWheel(-0.95, 1.4));
+        car.add(makeWheel(0.95, -1.4));
+        car.add(makeWheel(-0.95, -1.4));
+
+        car.position.set(0, 0, 0);
+        car.rotation.y = 0;
+
+        scene.add(car);
+        speed = 0;
+    }
+
+    function startGame() {
+        createCarFromConfig();
+
+        hudName.textContent = "Player: " + config.playerName;
+        hudCar.textContent = `Car: ${config.carType} (${config.driverType})`;
+
+        hud.style.display = "block";
+        menu.style.display = "none";
+    }
+
+    function updateCar() {
+        if (!car) return;
+
+        const accel = car.userData.accel || 20;
+        const maxSpeed = car.userData.maxSpeed || 40;
+        const grip = car.userData.grip || 1;
+
+        if (keys["KeyW"] || keys["ArrowUp"]) speed += accel * 0.02;
+        if (keys["KeyS"] || keys["ArrowDown"]) speed -= accel * 0.02;
+
+        speed = Math.max(Math.min(speed, maxSpeed), -maxSpeed);
+
+        if (!keys["KeyW"] && !keys["KeyS"] && !keys["ArrowUp"] && !keys["ArrowDown"]) {
+            if (speed > 0) {
+                speed -= 8 * 0.02;
+                if (speed < 0) speed = 0;
+            } else if (speed < 0) {
+                speed += 8 * 0.02;
+                if (speed > 0) speed = 0;
+            }
+        }
+
+        let steerInput = 0;
+        if (keys["KeyA"] || keys["ArrowLeft"]) steerInput += 1;
+        if (keys["KeyD"] || keys["ArrowRight"]) steerInput -= 1;
+
+        const steerFactor = (speed / maxSpeed) * grip;
+        car.rotation.y += steerInput * steerFactor * 0.05;
+
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(car.quaternion);
+        car.position.addScaledVector(forward, speed * 0.02);
+
+        const camOffset = new THREE.Vector3(0, 6, 12).applyQuaternion(car.quaternion);
+        const desiredCamPos = car.position.clone().add(camOffset);
+        camera.position.lerp(desiredCamPos, 0.12);
+        camera.lookAt(car.position.clone().add(new THREE.Vector3(0, 1.2, 0)));
+
+        hudSpeed.textContent = "Speed: " + Math.round(speed);
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        updateCar();
+        renderer.render(scene, camera);
+    }
+
+    function onResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Multiplayer hooks would go here (WebSocket connection, syncing car.position/rotation, etc.)
+});
 </script>
-
 </body>
 </html>
 
