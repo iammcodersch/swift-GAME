@@ -25,6 +25,7 @@
 </head>
 <body>
 
+<!-- MENU -->
 <div id="menu">
     <div class="panel">
         <h2>3D Car Racer</h2>
@@ -47,10 +48,10 @@
         </select>
 
         <button id="startBtn">Start Game</button>
-        <button id="multiBtn" style="background:#16a34a;">Multiplayer (Hook)</button>
     </div>
 </div>
 
+<!-- HUD -->
 <div id="hud">
     <div id="hudName"></div>
     <div id="hudCar"></div>
@@ -66,10 +67,6 @@ const hud = document.getElementById("hud");
 
 document.getElementById("startBtn").onclick = () => {
     startGame();
-};
-
-document.getElementById("multiBtn").onclick = () => {
-    alert("Multiplayer requires WebSocket server.\nHook included in code.");
 };
 
 // ---------------- GAME CONFIG ----------------
@@ -169,6 +166,7 @@ function startGame() {
 
     document.getElementById("hudName").textContent = "Player: " + config.name;
     document.getElementById("hudCar").textContent = "Car: " + config.car;
+
     hud.style.display = "block";
     menu.style.display = "none";
 }
@@ -218,11 +216,6 @@ function onResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
-
-// ---------------- MULTIPLAYER HOOK ----------------
-// WebSocket server example:
-// const socket = new WebSocket("wss://yourserver.com");
-// socket.send(JSON.stringify({ x:car.position.x, y:car.position.y, z:car.position.z }));
 </script>
 
 </body>
