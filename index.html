@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Click the Square Game</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #111827;
+            color: #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            margin-top: 20px;
+        }
+
+        #hud {
+            margin-top: 10px;
+            display: flex;
+            gap: 20px;
+            font-size: 1.1rem;
+        }
+
+        #game-area {
+            margin-top: 20px;
+            width: 80vw;
+            max-width: 500px;
+            height: 60vh;
+            border-radius: 12px;
+            border: 2px solid #374151;
+            background: radial-gradient(circle at top, #1f2937, #020617);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #target {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: #10b981;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+            display: none;
+            transition: transform 0.1s ease;
+        }
+
+        #target:active {
+            transform: scale(0.9);
+        }
+
+        #controls {
+            margin-top: 15px;
+        }
+
+        #start-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 999px;
+            background: #3b82f6;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        #start-btn:hover {
+            background: #2563eb;
+        }
+
+        #message {
+            margin-top: 10px;
+            min-height: 1.2em;
+            font-size: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Click the Square</h1>
+
+    <div id="hud">
+        <div>Score: <span id="score">0</span></div>
+        <div>Time: <span id="time">10</span>s</div>
+    </div>
+
+    <div id="game-area">
+        <div id="target"></div>
+    </div>
+
+    <div id="controls">
+        <button id="start-btn">Start Game</button>
+    </div>
+
+    <div id="message"></div>
+
+    <script>
+        const scoreEl = document.getElementById("score");
+        const timeEl = document.getElementById("time");
+        const target = document.getElementById("target");
+        const gameArea = document.getElementById("game-area");
+        const startBtn = document.getElementById("start-btn");
+        const messageEl = document.getElementById("message");
+
+        let score = 0;
+        let timeRemaining = 10;
+        let timer = null;
+        let running = false;
+
+        function moveTarget() {
+            const areaRect = gameArea.getBoundingClientRect();
+            const size = target.offsetWidth;
+
+            const maxX = areaRect.width - size;
+            const maxY = areaRect.height - size;
+
+            const x = Math.random() * maxX;
+            const y = Math.random() * maxY;
+
+            target.style.left = `${x}px`;
+            target.style.top = `${y}px`;
+        }
+
+        function startGame() {
+            score = 0;
+            timeRemaining = 10;
+            running = true;
+            scoreEl.textContent = score;
+            timeEl.textContent = timeRemaining;
+            messageEl.textContent = "";
+            target.style.display = "block";
+            moveTarget();
+
+            if (timer) {
+                clearInterval(timer);
+            }
+
+            timer = setInterval(() => {
+                timeRemaining--;
+                timeEl.textContent = timeRemaining;
+
+                if (timeRemaining <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            running = false;
+            clearInterval(timer);
+            target.style.display = "none";
+            messageEl.textContent = `Time's up! Final score: ${score}`;
+        }
+
+        target.addEventListener("click", () => {
+            if (!running) return;
+            score++;
+            scoreEl.textContent = score;
+            moveTarget();
+        });
+
+        startBtn.addEventListener("click", () => {
+            startGame();
+        });
+    </script>
+</body>
+</html>
