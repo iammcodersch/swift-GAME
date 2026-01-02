@@ -161,9 +161,13 @@ function updateCar() {
 
     // Natural slowdown
     if (!keys["KeyW"] && !keys["KeyS"]) {
-        if (speed > 0) speed -= 8 * 0.02;
-        if (speed < 0) speed += 8 * 0.02;
-        if (Math.abs(speed) < 0.1) speed = 0;
+        if (speed > 0) {
+            speed -= 8 * 0.02;
+            if (speed < 0) speed = 0;
+        } else if (speed < 0) {
+            speed += 8 * 0.02;
+            if (speed > 0) speed = 0;
+        }
     }
 
     // Steering
