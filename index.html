@@ -40,9 +40,11 @@ init();
 animate();
 
 function init() {
+    // Scene
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x020617);
 
+    // Camera
     camera = new THREE.PerspectiveCamera(
         60,
         window.innerWidth / window.innerHeight,
@@ -51,24 +53,32 @@ function init() {
     );
     camera.position.set(0, 6, 12);
 
+    // Renderer
     renderer = new THREE.WebGLRenderer({ antialias:true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
     // Lights
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x111827, 0.8);
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x111827, 1.0);
     scene.add(hemi);
 
-    const dir = new THREE.DirectionalLight(0xffffff, 1);
+    const dir = new THREE.DirectionalLight(0xffffff, 1.2);
     dir.position.set(10,20,-10);
+    dir.castShadow = true;
     scene.add(dir);
 
     // Ground
     const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(500,500),
-        new THREE.MeshStandardMaterial({ color:0x0f172a })
+        new THREE.MeshStandardMaterial({
+            color:0x0f172a,
+            roughness: 1,
+            metalness: 0
+        })
     );
     ground.rotation.x = -Math.PI/2;
+    ground.receiveShadow = true;
     scene.add(ground);
 
     // Car
@@ -83,20 +93,47 @@ function init() {
 function createCar() {
     car = new THREE.Group();
 
+    // Car body shader
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+        color: 0xff3333,
+        metalness: 0.8,
+        roughness: 0.3
+    });
+
     const body = new THREE.Mesh(
         new THREE.BoxGeometry(2,0.6,4),
-        new THREE.MeshStandardMaterial({ color:0xff3333 })
+        bodyMaterial
     );
     body.position.y = 0.7;
+    body.castShadow = true;
     car.add(body);
 
+    // Cabin
+    const cabin = new THREE.Mesh(
+        new THREE.BoxGeometry(1.4,0.5,1.6),
+        new THREE.MeshStandardMaterial({
+            color: 0x111827,
+            roughness: 0.9,
+            metalness: 0.1
+        })
+    );
+    cabin.position.set(0,1.1,-0.3);
+    cabin.castShadow = true;
+    car.add(cabin);
+
+    // Wheels
     const wheelGeo = new THREE.CylinderGeometry(0.45,0.45,0.4,20);
-    const wheelMat = new THREE.MeshStandardMaterial({ color:0x111111 });
+    const wheelMat = new THREE.MeshStandardMaterial({
+        color: 0x000000,
+        roughness: 0.8,
+        metalness: 0.2
+    });
 
     function wheel(x,z) {
         const w = new THREE.Mesh(wheelGeo, wheelMat);
         w.rotation.z = Math.PI/2;
         w.position.set(x,0.35,z);
+        w.castShadow = true;
         return w;
     }
 
@@ -165,4 +202,3 @@ function onResize() {
 </body>
 </html>
 
-    
