@@ -1,54 +1,120 @@
-// Basic scene setup
+// === BASIC SCENE SETUP ===
 const container = document.getElementById("canvas-container");
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb); // sky blue
+scene.background = new THREE.Color(0x87ceeb);
 
 const camera = new THREE.PerspectiveCamera(
   75,
   window.innerWidth / window.innerHeight,
   0.1,
-  10000
+  20000
 );
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 container.appendChild(renderer.domElement);
 
-// Lighting
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-scene.add(ambientLight);
+// === LIGHTING ===
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1);
+sun.position.set(200, 400, 100);
+scene.add(sun);
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(100, 200, 100);
-scene.add(dirLight);
-
-// Simple ground
-const groundGeo = new THREE.PlaneGeometry(50000, 50000, 50, 50);
-const groundMat = new THREE.MeshPhongMaterial({ color: 0x228b22 });
+// === GROUND ===
+const groundGeo = new THREE.PlaneGeometry(100000, 100000);
+const groundMat = new THREE.MeshPhongMaterial({ color: 0x3a8f3a });
 const ground = new THREE.Mesh(groundGeo, groundMat);
 ground.rotation.x = -Math.PI / 2;
-ground.position.y = 0;
 scene.add(ground);
 
-// Simple "aircraft" (a box)
-const planeGeo = new THREE.BoxGeometry(10, 2, 20);
-const planeMat = new THREE.MeshPhongMaterial({ color: 0xff0000 });
-const aircraft = new THREE.Mesh(planeGeo, planeMat);
-aircraft.position.set(0, 100, 0);
+// === RUNWAY ===
+const runwayGeo = new THREE.PlaneGeometry(3000, 80);
+const runwayMat = new THREE.MeshPhongMaterial({ color: 0x333333 });
+const runway = new THREE.Mesh(runwayGeo, runwayMat);
+runway.rotation.x = -Math.PI / 2;
+runway.position.set(0, 0.1, 0);
+scene.add(runway);
+
+// Runway centerline stripes
+for (let i = -1400; i < 1400; i += 200) {
+  const stripeGeo = new THREE.PlaneGeometry(40, 5);
+  const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+  stripe.rotation.x = -Math.PI / 2;
+  stripe.position.set(i, 0.11, 0);
+  scene.add(stripe);
+}
+
+// === SIMPLE AIRPORT BUILDINGS ===
+function makeBuilding(x, z, w, h, d) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  const mat = new THREE.MeshPhongMaterial({ color: 0x888888 });
+  const b = new THREE.Mesh(geo, mat);
+  b.position.set(x, h / 2, z);
+  scene.add(b);
+}
+
+makeBuilding(200, -200, 200, 60, 150); // terminal
+makeBuilding(350, -200, 120, 40, 120); // hangar
+makeBuilding(500, -200, 120, 40, 120); // hangar
+
+// === SIMPLE AIRPLANE MODEL ===
+function createAirplane(color = 0xff0000) {
+  const group = new THREE.Group();
+
+  // fuselage
+  const fuselageGeo = new THREE.CylinderGeometry(1.2, 1.2, 12, 16);
+  const fuselageMat = new THREE.MeshPhongMaterial({ color });
+  const fuselage = new THREE.Mesh(fuselageGeo, fuselageMat);
+  fuselage.rotation.z = Math.PI / 2;
+  group.add(fuselage);
+
+  // wings
+  const wingGeo = new THREE.BoxGeometry(14, 0.3, 2);
+  const wing = new THREE.Mesh(wingGeo, fuselageMat);
+  wing.position.set(0, 0, 0);
+  group.add(wing);
+
+  // tailplane
+  const tailGeo = new THREE.BoxGeometry(5, 0.2, 1.2);
+  const tail = new THREE.Mesh(tailGeo, fuselageMat);
+  tail.position.set(-5, 0, 0);
+  group.add(tail);
+
+  // vertical stabilizer
+  const finGeo = new THREE.BoxGeometry(0.3, 2, 1);
+  const fin = new THREE.Mesh(finGeo, fuselageMat);
+  fin.position.set(-5.5, 1, 0);
+  group.add(fin);
+
+  return group;
+}
+
+// === PLAYER AIRCRAFT ===
+const aircraft = createAirplane(0xff0000);
+aircraft.position.set(0, 20, 200);
 scene.add(aircraft);
 
-// Aircraft state
-let velocity = new THREE.Vector3(0, 0, -1);   // forward direction in local Z
-let speed = 50;                                // meters per second
-let throttle = 0.5;                            // 0–1
+// === PARKED AIRCRAFT ===
+for (let i = 0; i < 4; i++) {
+  const parked = createAirplane(0x0066ff);
+  parked.position.set(250 + i * 40, 5, -150);
+  parked.rotation.y = Math.PI / 2;
+  scene.add(parked);
+}
+
+// === FLIGHT PHYSICS ===
+let velocity = new THREE.Vector3(0, 0, -1);
+let speed = 50;
+let throttle = 0.5;
 const maxSpeed = 250;
 const minSpeed = 20;
 
-const pitchRate = THREE.MathUtils.degToRad(30);  // deg/sec
-const rollRate  = THREE.MathUtils.degToRad(45);
-const yawRate   = THREE.MathUtils.degToRad(15);
+const pitchRate = THREE.MathUtils.degToRad(30);
+const rollRate = THREE.MathUtils.degToRad(45);
+const yawRate = THREE.MathUtils.degToRad(15);
 
-const inputState = {
+const input = {
   pitchUp: false,
   pitchDown: false,
   rollLeft: false,
@@ -59,121 +125,97 @@ const inputState = {
   throttleDown: false
 };
 
-// Input handling
+// === INPUT HANDLING ===
 window.addEventListener("keydown", (e) => {
-  switch (e.code) {
-    case "KeyW": inputState.pitchDown = true; break; // nose down
-    case "KeyS": inputState.pitchUp = true; break;   // nose up
-    case "KeyA": inputState.rollLeft = true; break;
-    case "KeyD": inputState.rollRight = true; break;
-    case "KeyQ": inputState.yawLeft = true; break;
-    case "KeyE": inputState.yawRight = true; break;
-    case "KeyR": inputState.throttleUp = true; break;
-    case "KeyF": inputState.throttleDown = true; break;
-  }
+  if (e.code === "KeyW") input.pitchDown = true;
+  if (e.code === "KeyS") input.pitchUp = true;
+  if (e.code === "KeyA") input.rollLeft = true;
+  if (e.code === "KeyD") input.rollRight = true;
+  if (e.code === "KeyQ") input.yawLeft = true;
+  if (e.code === "KeyE") input.yawRight = true;
+  if (e.code === "KeyR") input.throttleUp = true;
+  if (e.code === "KeyF") input.throttleDown = true;
 });
 
 window.addEventListener("keyup", (e) => {
-  switch (e.code) {
-    case "KeyW": inputState.pitchDown = false; break;
-    case "KeyS": inputState.pitchUp = false; break;
-    case "KeyA": inputState.rollLeft = false; break;
-    case "KeyD": inputState.rollRight = false; break;
-    case "KeyQ": inputState.yawLeft = false; break;
-    case "KeyE": inputState.yawRight = false; break;
-    case "KeyR": inputState.throttleUp = false; break;
-    case "KeyF": inputState.throttleDown = false; break;
-  }
+  if (e.code === "KeyW") input.pitchDown = false;
+  if (e.code === "KeyS") input.pitchUp = false;
+  if (e.code === "KeyA") input.rollLeft = false;
+  if (e.code === "KeyD") input.rollRight = false;
+  if (e.code === "KeyQ") input.yawLeft = false;
+  if (e.code === "KeyE") input.yawRight = false;
+  if (e.code === "KeyR") input.throttleUp = false;
+  if (e.code === "KeyF") input.throttleDown = false;
 });
 
-// Resize
+// === RESIZE ===
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Simple physics loop
-let lastTime = performance.now();
+// === UPDATE LOOP ===
+let last = performance.now();
 
 function update(dt) {
-  // Throttle change
-  const throttleChangeRate = 0.3; // per second
-  if (inputState.throttleUp) {
-    throttle += throttleChangeRate * dt;
-  }
-  if (inputState.throttleDown) {
-    throttle -= throttleChangeRate * dt;
-  }
+  // throttle
+  if (input.throttleUp) throttle += dt * 0.3;
+  if (input.throttleDown) throttle -= dt * 0.3;
   throttle = THREE.MathUtils.clamp(throttle, 0, 1);
 
-  // Convert throttle to speed
   speed = minSpeed + throttle * (maxSpeed - minSpeed);
 
-  // Rotations based on input
-  let pitch = 0;
-  let roll = 0;
-  let yaw = 0;
+  // rotation
+  let pitch = 0, roll = 0, yaw = 0;
+  if (input.pitchUp) pitch += pitchRate * dt;
+  if (input.pitchDown) pitch -= pitchRate * dt;
+  if (input.rollLeft) roll += rollRate * dt;
+  if (input.rollRight) roll -= rollRate * dt;
+  if (input.yawLeft) yaw += yawRate * dt;
+  if (input.yawRight) yaw -= yawRate * dt;
 
-  if (inputState.pitchUp)   pitch += pitchRate * dt;
-  if (inputState.pitchDown) pitch -= pitchRate * dt;
-  if (inputState.rollLeft)  roll += rollRate * dt;
-  if (inputState.rollRight) roll -= rollRate * dt;
-  if (inputState.yawLeft)   yaw += yawRate * dt;
-  if (inputState.yawRight)  yaw -= yawRate * dt;
+  aircraft.quaternion.multiply(
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, roll, "XYZ"))
+  );
 
-  // Apply rotations in aircraft local space
-  const euler = new THREE.Euler(pitch, yaw, roll, "XYZ");
-  aircraft.quaternion.multiply(new THREE.Quaternion().setFromEuler(euler));
-
-  // Forward direction in world space
+  // forward direction
   const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(aircraft.quaternion);
 
-  // Simplified lift: reduce downward velocity if moving fast and wings have some angle
-  // (This is extremely crude, just to keep the plane from instantly falling.)
+  // gravity + crude lift
   const gravity = new THREE.Vector3(0, -9.81, 0);
-  const liftFactor = 0.5; // tweak this
-  const lift = new THREE.Vector3(0, liftFactor * speed, 0);
+  const lift = new THREE.Vector3(0, speed * 0.4, 0);
 
-  const acceleration = new THREE.Vector3()
-    .copy(forward).multiplyScalar(0)  // no thrust as acceleration; thrust is in speed
-    .add(gravity)
-    .add(lift);
+  velocity.addScaledVector(gravity, dt);
+  velocity.addScaledVector(lift, dt);
 
-  velocity.addScaledVector(acceleration, dt);
+  // arcade-style forward velocity
+  velocity.lerp(forward.multiplyScalar(speed), 0.1);
 
-  // Force velocity direction roughly forward (arcade-y)
-  const forwardSpeed = speed;
-  velocity.lerp(forward.multiplyScalar(forwardSpeed), 0.1);
-
-  // Integrate position
   aircraft.position.addScaledVector(velocity, dt);
 
-  // Prevent going below ground
-  if (aircraft.position.y < 2) {
-    aircraft.position.y = 2;
-    velocity.y = Math.max(0, velocity.y);
+  // ground collision
+  if (aircraft.position.y < 5) {
+    aircraft.position.y = 5;
+    velocity.y = 0;
   }
 
-  // Camera: chase view behind and above aircraft
-  const cameraOffset = new THREE.Vector3(0, 15, 40); // relative to aircraft
-  const worldOffset = cameraOffset.applyQuaternion(aircraft.quaternion);
-  const cameraTarget = new THREE.Vector3().copy(aircraft.position);
-  const cameraPos = new THREE.Vector3().copy(aircraft.position).add(worldOffset);
-
-  camera.position.lerp(cameraPos, 0.1);
-  camera.lookAt(cameraTarget);
+  // camera follow
+  const camOffset = new THREE.Vector3(0, 20, 60).applyQuaternion(aircraft.quaternion);
+  const camPos = aircraft.position.clone().add(camOffset);
+  camera.position.lerp(camPos, 0.1);
+  camera.lookAt(aircraft.position);
 }
 
-// Main render loop
 function animate() {
   requestAnimationFrame(animate);
   const now = performance.now();
-  const dt = (now - lastTime) / 1000;
-  lastTime = now;
+  const dt = (now - last) / 1000;
+  last = now;
 
   update(dt);
   renderer.render(scene, camera);
 }
 
 animate();
+
