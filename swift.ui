@@ -1,76 +1,152 @@
 import SwiftUI
+import SceneKit
 
 struct ContentView: View {
-    @State private var score = 0
-    @State private var timeRemaining = 10
-    @State private var circlePosition = CGPoint(x: 150, y: 300)
-    @State private var gameRunning = false
-    @State private var timer: Timer?
-
     var body: some View {
-        ZStack {
-            VStack {
-                Text("Score: \(score)")
-                    .font(.largeTitle)
-                    .padding()
+        CarGameView()
+            .edgesIgnoringSafeArea(.all)
+    }
+}
 
-                Text("Time: \(timeRemaining)")
-                    .font(.title2)
+struct CarGameView: UIViewRepresentable {
+    func makeUIView(context: Context) -> SCNView {
+        let view = SCNView()
+        view.scene = SCNScene()
+        view.allowsCameraControl = false
+        view.showsStatistics = true
+        view.backgroundColor = .black
 
-                Spacer()
+        let scene = view.scene!
+        context.coordinator.setupScene(scene: scene)
 
-                Button(action: startGame) {
-                    Text(gameRunning ? "Restart" : "Start Game")
-                        .font(.title2)
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                }
-                .padding()
-            }
+        view.delegate = context.coordinator
+        view.isPlaying = true
 
-            if gameRunning {
-                Circle()
-                    .fill(Color.red)
-                    .frame(width: 80, height: 80)
-                    .position(circlePosition)
-                    .onTapGesture {
-                        score += 1
-                        moveCircle()
-                    }
-                    .animation(.easeInOut(duration: 0.2), value: circlePosition)
-            }
-        }
+        return view
     }
 
-    func startGame() {
-        score = 0
-        timeRemaining = 10
-        gameRunning = true
-        moveCircle()
+    func updateUIView(_ uiView: SCNView, context: Context) {}
 
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            timeRemaining -= 1
-            if timeRemaining == 0 {
-                gameRunning = false
-                timer?.invalidate()
-            }
-        }
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
     }
 
-    func moveCircle() {
-        let screenWidth = UIScreen.main.bounds.width
-        let screenHeight = UIScreen.main.bounds.height
+    class Coordinator: NSObject, SCNSceneRendererDelegate {
+        var carNode = SCNNode()
+        var cameraNode = SCNNode()
 
-        circlePosition = CGPoint(
-            x: CGFloat.random(in: 50...(screenWidth - 50)),
-            y: CGFloat.random(in: 150...(screenHeight - 150))
+        var velocity: Float = 0
+        var steering: Float = 0
+
+        let maxSpeed: Float = 20
+        let acceleration: Float = 10
+        let friction: Float = 4
+        let steeringSpeed: Float = 2
+
+        var keys: Set<String> = []
+
+        func setupScene(scene: SCNScene) {
+            // Ground
+            let ground = SCNFloor()
+            ground.reflectivity = 0
+            let groundNode = SCNNode(geometry: ground)
+            groundNode.geometry?.firstMaterial?.diffuse.contents = UIColor.darkGray
+            scene.rootNode.addChildNode(groundNode)
+
+            // Car body
+            let body = SCNBox(width: 1.2, height: 0.4, length: 2.0, chamferRadius: 0.1)
+            body.firstMaterial?.diffuse.contents = UIColor.red
+            carNode = SCNNode(geometry: body)
+            carNode.position = SCNVector3(0, 0.3, 0)
+            scene.rootNode.addChildNode(carNode)
+
+            // Camera
+            let camera = SCNCamera()
+            cameraNode.camera = camera
+            cameraNode.position = SCNVector3(0, 3, 8)
+            scene.rootNode.addChildNode(cameraNode)
+
+            // Light
+            let light = SCNLight()
+            light.type = .directional
+            let lightNode = SCNNode()
+            lightNode.light = light
+            lightNode.eulerAngles = SCNVector3(-.pi/3, 0, 0)
+            scene.rootNode.addChildNode(lightNode)
+
+            // Add obstacles
+            for i in -3...3 {
+                let box = SCNBox(width: 1, height: 1, length: 1, chamferRadius: 0)
+                let node = SCNNode(geometry: box)
+                node.position = SCNVector3(Float(i) * 4, 0.5, -10)
+                node.geometry?.firstMaterial?.diffuse.contents = UIColor.blue
+                scene.rootNode.addChildNode(node)
+            }
+
+            // Keyboard notifications
+            NotificationCenter.default.addObserver(self, selector: #selector(keyDown(_:)), name: UIResponder.keyboardDidShowNotification, object: nil)
+        }
+
+        @objc func keyDown(_ notification: Notification) {}
+
+        func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
+            handleInput()
+            updateCar()
+            updateCamera()
+        }
+
+        func handleInput() {
+            #if targetEnvironment(macCatalyst)
+            if keys.contains("w") { velocity += acceleration * 0.02 }
+            if keys.contains("s") { velocity -= acceleration * 0.02 }
+            if keys.contains("a") { steering += steeringSpeed * 0.02 }
+            if keys.contains("d") { steering -= steeringSpeed * 0.02 }
+            #endif
+        }
+
+        func updateCar() {
+            // Clamp speed
+            velocity = max(min(velocity, maxSpeed), -maxSpeed)
+
+            // Apply friction
+            if velocity > 0 {
+                velocity -= friction * 0.02
+                if velocity < 0 { velocity = 0 }
+            }
+            if velocity < 0 {
+                velocity += friction * 0.02
+                if velocity > 0 { velocity = 0 }
+            }
+
+            // Move forward
+            let forward = carNode.presentation.worldFront
+            carNode.position.x += forward.x * velocity * 0.02
+            carNode.position.z += forward.z * velocity * 0.02
+
+            // Steering
+            carNode.eulerAngles.y += steering * 0.02
+            steering *= 0.9
+        }
+
+        func updateCamera() {
+            let targetPos = carNode.position + SCNVector3(0, 3, 8)
+            cameraNode.position = cameraNode.position.lerp(to: targetPos, t: 0.1)
+            cameraNode.look(at: carNode.position)
+        }
+    }
+}
+
+extension SCNVector3 {
+    static func + (a: SCNVector3, b: SCNVector3) -> SCNVector3 {
+        SCNVector3(a.x + b.x, a.y + b.y, a.z + b.z)
+    }
+
+    func lerp(to: SCNVector3, t: Float) -> SCNVector3 {
+        SCNVector3(
+            x + (to.x - x) * t,
+            y + (to.y - y) * t,
+            z + (to.z - z) * t
         )
     }
 }
 
-#Preview {
-    ContentView()
-}
