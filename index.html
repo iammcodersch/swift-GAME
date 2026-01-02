@@ -1,170 +1,286 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Click the Square Game</title>
+    <meta charset="UTF-8" />
+    <title>3D Car Game</title>
     <style>
-        body {
+        html, body {
             margin: 0;
-            font-family: Arial, sans-serif;
-            background: #111827;
-            color: #e5e7eb;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
-
-        h1 {
-            margin-top: 20px;
-        }
-
-        #hud {
-            margin-top: 10px;
-            display: flex;
-            gap: 20px;
-            font-size: 1.1rem;
-        }
-
-        #game-area {
-            margin-top: 20px;
-            width: 80vw;
-            max-width: 500px;
-            height: 60vh;
-            border-radius: 12px;
-            border: 2px solid #374151;
-            background: radial-gradient(circle at top, #1f2937, #020617);
-            position: relative;
+            padding: 0;
             overflow: hidden;
+            background: #050816;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #e5e7eb;
         }
-
-        #target {
-            position: absolute;
-            width: 60px;
-            height: 60px;
-            background: #10b981;
+        #hud {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 10px 14px;
             border-radius: 8px;
-            cursor: pointer;
-            box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
-            display: none;
-            transition: transform 0.1s ease;
+            font-size: 14px;
         }
-
-        #target:active {
-            transform: scale(0.9);
+        #hud h1 {
+            margin: 0 0 4px 0;
+            font-size: 16px;
         }
-
-        #controls {
-            margin-top: 15px;
-        }
-
-        #start-btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 999px;
-            background: #3b82f6;
-            color: white;
-            font-size: 1rem;
-            cursor: pointer;
-        }
-
-        #start-btn:hover {
-            background: #2563eb;
-        }
-
-        #message {
-            margin-top: 10px;
-            min-height: 1.2em;
-            font-size: 1rem;
+        #hud p {
+            margin: 2px 0;
         }
     </style>
 </head>
 <body>
-    <h1>Click the Square</h1>
+<div id="hud">
+    <h1>3D Car Game</h1>
+    <p><strong>Controls:</strong> W/S = accelerate/brake, A/D = steer, Space = handbrake</p>
+    <p><span id="speedLabel">Speed: 0 km/h</span></p>
+</div>
 
-    <div id="hud">
-        <div>Score: <span id="score">0</span></div>
-        <div>Time: <span id="time">10</span>s</div>
-    </div>
+<!-- Three.js and helper libs from CDN -->
+<script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
 
-    <div id="game-area">
-        <div id="target"></div>
-    </div>
+<script>
+    // === Basic Three.js setup ===
+    let scene, camera, renderer, controls;
+    let car, carBody;
+    let clock;
+    const keys = {};
 
-    <div id="controls">
-        <button id="start-btn">Start Game</button>
-    </div>
+    // Car physics-ish params
+    let velocity = 0;
+    let steeringAngle = 0;
+    const maxSteering = THREE.MathUtils.degToRad(30);
+    const acceleration = 15;        // units/s^2
+    const brakeDecel = 30;
+    const friction = 4;
+    const handbrakeFriction = 8;
+    const maxSpeed = 70;            // "km/h" feel
+    const steeringSpeed = 3;        // how fast steering changes
 
-    <div id="message"></div>
+    init();
+    animate();
 
-    <script>
-        const scoreEl = document.getElementById("score");
-        const timeEl = document.getElementById("time");
-        const target = document.getElementById("target");
-        const gameArea = document.getElementById("game-area");
-        const startBtn = document.getElementById("start-btn");
-        const messageEl = document.getElementById("message");
+    function init() {
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050816);
 
-        let score = 0;
-        let timeRemaining = 10;
-        let timer = null;
-        let running = false;
+        // Camera
+        camera = new THREE.PerspectiveCamera(
+            60,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+        camera.position.set(0, 10, -20);
 
-        function moveTarget() {
-            const areaRect = gameArea.getBoundingClientRect();
-            const size = target.offsetWidth;
+        // Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
 
-            const maxX = areaRect.width - size;
-            const maxY = areaRect.height - size;
+        clock = new THREE.Clock();
 
-            const x = Math.random() * maxX;
-            const y = Math.random() * maxY;
+        // Lights
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x222233, 0.6);
+        hemiLight.position.set(0, 50, 0);
+        scene.add(hemiLight);
 
-            target.style.left = `${x}px`;
-            target.style.top = `${y}px`;
-        }
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+        dirLight.position.set(30, 50, -30);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.set(2048, 2048);
+        scene.add(dirLight);
 
-        function startGame() {
-            score = 0;
-            timeRemaining = 10;
-            running = true;
-            scoreEl.textContent = score;
-            timeEl.textContent = timeRemaining;
-            messageEl.textContent = "";
-            target.style.display = "block";
-            moveTarget();
+        // Ground
+        const groundGeo = new THREE.PlaneGeometry(500, 500, 32, 32);
+        const groundMat = new THREE.MeshStandardMaterial({
+            color: 0x111827,
+            roughness: 1,
+            metalness: 0
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
 
-            if (timer) {
-                clearInterval(timer);
-            }
+        // Simple track lines (just visuals)
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x94a3b8 });
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(-50, 0.01, -50),
+            new THREE.Vector3(50, 0.01, -50),
+            new THREE.Vector3(50, 0.01, 50),
+            new THREE.Vector3(-50, 0.01, 50),
+            new THREE.Vector3(-50, 0.01, -50)
+        ]);
+        const trackLines = new THREE.Line(lineGeo, lineMat);
+        scene.add(trackLines);
 
-            timer = setInterval(() => {
-                timeRemaining--;
-                timeEl.textContent = timeRemaining;
+        // Obstacles
+        addObstacle(0, 0.5, 20);
+        addObstacle(15, 0.5, 5);
+        addObstacle(-15, 0.5, -10);
+        addObstacle(10, 0.5, -25);
 
-                if (timeRemaining <= 0) {
-                    endGame();
-                }
-            }, 1000);
-        }
+        // Car
+        createCar();
 
-        function endGame() {
-            running = false;
-            clearInterval(timer);
-            target.style.display = "none";
-            messageEl.textContent = `Time's up! Final score: ${score}`;
-        }
+        // Orbit controls for debug (can be disabled)
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enabled = false; // set true if you want free camera
+        controls.target.set(0, 1, 0);
 
-        target.addEventListener("click", () => {
-            if (!running) return;
-            score++;
-            scoreEl.textContent = score;
-            moveTarget();
+        // Events
+        window.addEventListener("resize", onWindowResize);
+        window.addEventListener("keydown", onKeyDown);
+        window.addEventListener("keyup", onKeyUp);
+    }
+
+    function addObstacle(x, y, z) {
+        const boxGeo = new THREE.BoxGeometry(4, 1, 4);
+        const boxMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8 });
+        const box = new THREE.Mesh(boxGeo, boxMat);
+        box.position.set(x, y, z);
+        box.castShadow = true;
+        box.receiveShadow = true;
+        scene.add(box);
+    }
+
+    function createCar() {
+        car = new THREE.Group();
+
+        // Body
+        const bodyGeo = new THREE.BoxGeometry(2, 0.7, 4);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.5, roughness: 0.3 });
+        carBody = new THREE.Mesh(bodyGeo, bodyMat);
+        carBody.castShadow = true;
+        carBody.position.y = 0.8;
+        car.add(carBody);
+
+        // Cabin
+        const cabinGeo = new THREE.BoxGeometry(1.6, 0.6, 2);
+        const cabinMat = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.1, roughness: 0.9 });
+        const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+        cabin.position.set(0, 1.1, -0.4);
+        cabin.castShadow = true;
+        car.add(cabin);
+
+        // Wheels
+        const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 16);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111827 });
+        const wheelPositions = [
+            [0.9, 0.4, 1.2],
+            [-0.9, 0.4, 1.2],
+            [0.9, 0.4, -1.2],
+            [-0.9, 0.4, -1.2],
+        ];
+
+        wheelPositions.forEach(pos => {
+            const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+            wheel.rotation.z = Math.PI / 2;
+            wheel.castShadow = true;
+            wheel.position.set(pos[0], pos[1], pos[2]);
+            car.add(wheel);
         });
 
-        startBtn.addEventListener("click", () => {
-            startGame();
-        });
-    </script>
+        car.position.set(0, 0, 0);
+        scene.add(car);
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function onKeyDown(e) {
+        keys[e.code] = true;
+    }
+
+    function onKeyUp(e) {
+        keys[e.code] = false;
+    }
+
+    function updateCar(dt) {
+        // Input
+        let accel = 0;
+        let steeringInput = 0;
+
+        if (keys["KeyW"] || keys["ArrowUp"]) accel += acceleration;
+        if (keys["KeyS"] || keys["ArrowDown"]) accel -= brakeDecel;
+        if (keys["KeyA"] || keys["ArrowLeft"]) steeringInput += 1;
+        if (keys["KeyD"] || keys["ArrowRight"]) steeringInput -= 1;
+
+        // Adjust velocity
+        velocity += accel * dt;
+
+        // Clamp speed
+        const speedSign = Math.sign(velocity);
+        let speed = Math.abs(velocity);
+        if (speed > maxSpeed) speed = maxSpeed;
+        velocity = speed * speedSign;
+
+        // Apply friction (different if handbrake)
+        const isHandbrake = keys["Space"];
+        const currentFriction = isHandbrake ? handbrakeFriction : friction;
+        if (speed > 0) {
+            speed -= currentFriction * dt;
+            if (speed < 0) speed = 0;
+            velocity = speed * speedSign;
+        }
+
+        // Steering
+        const targetSteering = steeringInput * maxSteering;
+        steeringAngle = THREE.MathUtils.lerp(
+            steeringAngle,
+            targetSteering,
+            steeringSpeed * dt
+        );
+
+        // Move car
+        const forward = new THREE.Vector3(0, 0, -1);
+        forward.applyQuaternion(car.quaternion);
+        car.position.addScaledVector(forward, velocity * dt * 0.2); // scaling factor for feel
+
+        // Rotate car based on steering and movement
+        const turnStrength = velocity / maxSpeed;
+        const rotationAmount = steeringAngle * turnStrength * dt * 3;
+        car.rotation.y += rotationAmount;
+
+        // Keep car above ground
+        car.position.y = 0;
+
+        // Update camera to follow
+        updateCamera(dt);
+
+        // Update HUD speed
+        const speedLabel = document.getElementById("speedLabel");
+        speedLabel.textContent = "Speed: " + Math.round(speed) + " km/h";
+    }
+
+    function updateCamera(dt) {
+        const offset = new THREE.Vector3(0, 6, 12); // behind car
+        const worldOffset = offset.clone().applyQuaternion(car.quaternion);
+        const desiredPos = car.position.clone().add(worldOffset);
+
+        const lerpFactor = 4 * dt;
+        camera.position.lerp(desiredPos, lerpFactor);
+
+        const targetPos = car.position.clone().add(new THREE.Vector3(0, 2, 0));
+        camera.lookAt(targetPos);
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const dt = clock.getDelta();
+
+        updateCar(dt);
+        renderer.render(scene, camera);
+    }
+</script>
 </body>
 </html>
+
